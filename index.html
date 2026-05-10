@@ -249,125 +249,116 @@
                 gsap.fromTo(targetView, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
             }});
         }
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = { 
+            apiKey: "AIzaSyDtvjI-ImiWt-QUE4N-qgG_zkVwMn-7q0U", 
+            authDomain: "vortex-atri-hub.firebaseapp.com", 
+            projectId: "vortex-atri-hub", 
+            storageBucket: "vortex-atri-hub.firebasestorage.app", 
+            messagingSenderId: "852943761312", 
+            appId: "1:852943761312:web:50a177a49a50532685fec5" 
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        
+        // --- GLOBAL OTP STORAGE ---
+        let activeOTP = ""; // Holds the 6-digit code for verification
+
+        // --- MOTION ENGINE (LENIS) ---
+        const lenis = new Lenis();
+        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+        requestAnimationFrame(raf);
+
+        // --- THEME ENGINE ---
+        const html = document.documentElement;
+        const themeToggle = document.getElementById('theme-toggle');
+        themeToggle.addEventListener('click', () => {
+            html.classList.toggle('dark');
+            const isDark = html.classList.contains('dark');
+            gsap.to('#theme-toggle', { rotation: isDark ? 180 : 0, duration: 0.5, ease: "back.out" });
+        });
+
+        // --- VIEW NAVIGATION ---
+        const views = {
+            'view-login': { title: 'Welcome Back', icon: 'ph-sign-in' },
+            'view-signup': { title: 'Create Empire', icon: 'ph-user-plus' },
+            'view-reset': { title: 'Recover Access', icon: 'ph-gear' },
+            'view-otp': { title: 'Auth Verified', icon: 'ph-lock-key-open' }
+        };
+
+        function switchView(targetId) {
+            const current = document.querySelector('.auth-view.block');
+            const target = document.getElementById(targetId);
+            gsap.to(current, { opacity: 0, y: 10, duration: 0.2, onComplete: () => {
+                current.classList.replace('block', 'hidden');
+                target.classList.replace('hidden', 'block');
+                document.getElementById('auth-title').innerText = views[targetId].title;
+                document.getElementById('dynamic-auth-icon').className = `ph-bold ${views[targetId].icon} text-4xl text-accent`;
+                gsap.fromTo(target, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
+            }});
+        }
 
         document.querySelectorAll('.switch-btn').forEach(btn => btn.addEventListener('click', (e) => switchView(e.target.dataset.target)));
 
+        // --- PASSWORD STRENGTH VIEWER ---
+        document.getElementById('signup-password').addEventListener('input', (e) => {
+            const v = e.target.value; let s = 0;
+            if(v.length >= 8) s++; if(v.match(/[A-Z]/) && v.match(/[0-9]/)) s++; if(v.match(/[^A-Za-z0-9]/)) s++;
+            const bars = [document.getElementById('str-1'), document.getElementById('str-2'), document.getElementById('str-3')];
+            bars.forEach(b => b.className = "h-full w-1/3 rounded-full bg-slate-300 dark:bg-slate-700");
+            if(s >= 1) bars[0].classList.add('bg-red-500'); 
+            if(s >= 2) bars[1].classList.add('bg-yellow-500'); 
+            if(s >= 3) { bars.forEach(b => b.classList.add('bg-green-500')); }
+        });
+
+        // --- SIGNUP & 6-DIGIT OTP DISPATCH ---
+        document.getElementById('form-signup').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signup-email').value;
+            const pass = document.getElementById('signup-password').value;
+            const btn = document.getElementById('btn-signup');
+            activeOTP = Math.floor(100000 + Math.random() * 900000).toString(); // Generate
+
+            try {
+                btn.innerHTML = `<i class="ph ph-spinner animate-spin"></i>`;
+                await createUserWithEmailAndPassword(auth, email, pass);
+                
+                // Trigger Google Script Bridge
+                const bridgeURL = "https://script.google.com/macros/s/AKfycbyLFVSUSXTNObw7i4T76JJL_ln2ILOYD11u-E4tnsjzTkTesx6LUU6v4uXSE_LUIZfAEg/exec";
+                await fetch(bridgeURL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({ email: email, otp_code: activeOTP })
+                });
+
+                showToast("6-Digit Code sent to inbox.");
+                switchView('view-otp');
+            } catch(err) { showToast(err.message, true); }
+            finally { btn.innerHTML = `<span>Create Account</span><i class="ph-bold ph-rocket-launch"></i>`; }
+        });
+
+        // --- OTP VERIFICATION LOGIC ---
+        document.getElementById('btn-otp-verify').addEventListener('click', () => {
+            const entered = Array.from(document.querySelectorAll('.otp-input')).map(i => i.value).join('');
+            if (entered === activeOTP && activeOTP !== "") {
+                showToast("Identity Confirmed.");
+                switchView('view-login');
+            } else {
+                showToast("Invalid Code.", true);
+            }
+        });
+
+        // --- UTILS ---
         function showToast(msg, isErr = false) {
             const t = document.getElementById('toast');
             document.getElementById('toast-msg').innerText = msg;
-            t.querySelector('i').className = isErr ? "ph-bold ph-warning-circle text-lg text-red-500" : "ph-bold ph-check-circle text-lg text-accent";
-            gsap.to(t, { y: 0, opacity: 1, duration: 0.4, ease: "back.out" });
-            setTimeout(() => gsap.to(t, { y: 20, opacity: 0, duration: 0.3 }), 4000);
+            t.classList.replace('translate-y-20', 'translate-y-0'); t.classList.replace('opacity-0', 'opacity-100');
+            setTimeout(() => { t.classList.replace('translate-y-0', 'translate-y-20'); t.classList.replace('opacity-100', 'opacity-0'); }, 3000);
         }
-
-        // --- PASSWORD STRENGTH VIEWER (LIVE FEEDBACK) ---
-        const pwdInput = document.getElementById('signup-password');
-        const strBars = [document.getElementById('str-1'), document.getElementById('str-2'), document.getElementById('str-3')];
-        const strText = document.getElementById('strength-text');
-
-        pwdInput.addEventListener('input', (e) => {
-            const v = e.target.value; let s = 0;
-            if(v.length >= 8) s++; if(v.match(/[A-Z]/) && v.match(/[0-9]/)) s++; if(v.match(/[^A-Za-z0-9]/)) s++;
-            strBars.forEach(b => b.className = "h-full w-1/3 rounded-full bg-slate-300 dark:bg-slate-700 transition-all duration-300");
-            if(v.length === 0) { strText.innerText = "None"; strText.className = "text-[10px] font-bold text-slate-400 uppercase"; return; }
-            if(s === 1 || (v.length > 0 && s === 0)) { strBars[0].classList.replace('bg-slate-300', 'bg-red-500'); strText.innerText = "Weak"; strText.className = "text-[10px] font-bold text-red-500 uppercase"; } 
-            else if(s === 2) { strBars[0].classList.replace('bg-slate-300', 'bg-yellow-500'); strBars[1].classList.replace('bg-slate-300', 'bg-yellow-500'); strText.innerText = "Medium"; strText.className = "text-[10px] font-bold text-yellow-500 uppercase"; } 
-            else if(s === 3) { strBars.forEach(b => { b.classList.replace('bg-slate-300', 'bg-green-500'); b.classList.replace('dark:bg-slate-700', 'bg-green-500'); }); strText.innerText = "Strong"; strText.className = "text-[10px] font-bold text-green-500 uppercase"; }
-        });
-
-        // --- OTP LOGIC (RE-POLLING) ---
-        document.getElementById('btn-otp-verify').addEventListener('click', async () => {
-            const container = document.getElementById('otp-container');
-            container.classList.add('is-loading');
-            const user = auth.currentUser;
-            if(user) {
-                await user.reload();
-                if(user.emailVerified) { showToast("Verification Successful."); switchView('view-login'); }
-                else { showToast("Not yet verified. Check your email.", true); }
-            }
-            container.classList.remove('is-loading');
-        });
-
-        const otpInputs = document.querySelectorAll('.otp-input');
-        otpInputs.forEach((input, i) => {
-            input.addEventListener('input', () => {
-                input.value = input.value.replace(/[^0-9]/g, '');
-                if (input.value.length === 1 && i < otpInputs.length - 1) otpInputs[i+1].focus();
-            });
-            input.addEventListener('keydown', (e) => { if (e.key === 'Backspace' && !input.value && i > 0) otpInputs[i-1].focus(); });
-        });
-
-        // --- AUTH SUBMISSIONS ---
-        document.getElementById('form-login').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-password').value;
-            try {
-                const cred = await signInWithEmailAndPassword(auth, email, pass);
-                if(!cred.user.emailVerified) { showToast("Email not verified.", true); await signOut(auth); return; }
-                showToast("Access Granted.");
-            } catch(err) { showToast("Invalid Credentials.", true); }
-        });
-
-        // --- VORTEX REAL OTP GENERATOR ---
-let activeOTP = ""; // Secure global variable
-
-document.getElementById('form-signup').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('signup-email').value;
-    const pass = document.getElementById('signup-password').value;
-    const btn = document.getElementById('btn-signup');
-
-    // 1. Generate 6-digit Code
-    activeOTP = Math.floor(100000 + Math.random() * 900000).toString();
-
-    try {
-        btn.innerHTML = `<i class="ph ph-spinner animate-spin"></i> Dispatching...`;
-        
-        // 2. Create Firebase Account (Background)
-        const cred = await createUserWithEmailAndPassword(auth, email, pass);
-        
-        // 3. Trigger Your Free OTP Bridge
-        const bridgeURL = "https://script.google.com/macros/s/AKfycbyLFVSUSXTNObw7i4T76JJL_ln2ILOYD11u-E4tnsjzTkTesx6LUU6v4uXSE_LUIZfAEg/exec";
-        await fetch(bridgeURL, {
-            method: 'POST',
-            mode: 'no-cors', // Critical for Apps Script
-            body: JSON.stringify({ email: email, otp_code: activeOTP })
-        });
-
-        showToast("6-Digit Code sent to your inbox.");
-        switchView('view-otp');
-    } catch(err) {
-        showToast(err.message, true);
-    } finally {
-        btn.innerHTML = `<span>Create Account</span><i class="ph-bold ph-rocket-launch"></i>`;
-    }
-});
-        
-        document.getElementById('form-reset').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('reset-email').value;
-            try { await sendPasswordResetEmail(auth, email, actionCodeSettings); showToast("Recovery sent."); switchView('view-login'); } catch(err) { showToast("Error sending recovery.", true); }
-        });
-
-        window.addEventListener('load', async () => {
-            const params = new URLSearchParams(window.location.search);
-            const mode = params.get('mode');
-            const oob = params.get('oobCode');
-            if (oob) {
-                if (mode === 'verifyEmail') { try { await applyActionCode(auth, oob); showToast("Identity Verified!"); switchView('view-login'); } catch { showToast("Link expired.", true); } } 
-                else if (mode === 'resetPassword') { showToast("Reset link detected."); switchView('view-reset'); }
-            }
-        });
-
-        document.querySelectorAll('.toggle-password').forEach(i => i.addEventListener('click', function() {
-            const input = this.previousElementSibling; input.type = input.type === 'password' ? 'text' : 'password';
-            this.classList.toggle('ph-eye'); this.classList.toggle('ph-eye-slash');
-        }));
-
-        document.getElementById('btn-google').addEventListener('click', async () => {
-            try { await signInWithPopup(auth, new GoogleAuthProvider()); showToast("OAuth Success."); } catch(err) { showToast("OAuth Failed.", true); }
-        });
     </script>
 </body>
 </html>
