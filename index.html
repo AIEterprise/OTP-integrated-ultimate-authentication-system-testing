@@ -193,7 +193,13 @@
         const firebaseConfig = { apiKey: "AIzaSyDtvjI-ImiWt-QUE4N-qgG_zkVwMn-7q0U", authDomain: "vortex-atri-hub.firebaseapp.com", projectId: "vortex-atri-hub", storageBucket: "vortex-atri-hub.firebasestorage.app", messagingSenderId: "852943761312", appId: "1:852943761312:web:50a177a49a50532685fec5" };
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-
+// --- VORTEX REDIRECT SETTINGS ---
+const actionCodeSettings = {
+    // Ensures the user returns to the exact page they started on
+    url: window.location.origin + window.location.pathname,
+    handleCodeInApp: true,
+};
+        
         // --- VORTEX REDIRECT ARCHITECTURE ---
         const actionCodeSettings = {
             url: window.location.origin + window.location.pathname, 
