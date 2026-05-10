@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vortex | Secure Authentication</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { poppins: ['Poppins', 'sans-serif'] },
+                    colors: { 'brand-light': '#E0E5EC', 'brand-dark': '#1A1B26', 'accent': '#3B82F6' },
+                    boxShadow: {
+                        'neu-light': '9px 9px 16px rgb(163,177,198,0.6), -9px -9px 16px rgba(255,255,255, 0.5)',
+                        'neu-light-inset': 'inset 6px 6px 10px 0 rgba(163,177,198, 0.7), inset -6px -6px 10px 0 rgba(255,255,255, 0.8)',
+                        'neu-dark': '9px 9px 16px rgba(0,0,0,0.4), -9px -9px 16px rgba(38,40,55, 0.5)',
+                        'neu-dark-inset': 'inset 6px 6px 10px 0 rgba(0,0,0, 0.6), inset -6px -6px 10px 0 rgba(38,40,55, 0.5)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { transition: background-color 0.5s ease; }
+        ::-webkit-scrollbar { display: none; }
+        .neu-btn-light:active { box-shadow: inset 2px 2px 5px 0 rgba(163,177,198, 0.7), inset -2px -2px 5px 0 rgba(255,255,255, 0.8); }
+        .neu-btn-dark:active { box-shadow: inset 2px 2px 5px 0 rgba(0,0,0, 0.6), inset -2px -2px 5px 0 rgba(38,40,55, 0.5); }
+        @keyframes pulse-sunken { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.95); opacity: 0.7; } }
+        .is-loading .otp-input { animation: pulse-sunken 1.5s infinite ease-in-out; }
+    </style>
+</head>
+
+<body class="bg-brand-light dark:bg-brand-dark text-slate-800 dark:text-slate-200 font-poppins min-h-screen flex items-center justify-center overflow-x-hidden selection:bg-accent selection:text-white">
+
+    <button id="theme-toggle" class="fixed top-6 right-6 w-14 h-14 rounded-full bg-brand-light dark:bg-brand-dark shadow-neu-light dark:shadow-neu-dark z-50 flex items-center justify-center hover:scale-105 transition-all">
+        <i class="ph ph-moon text-2xl dark:hidden text-slate-700"></i>
+        <i class="ph ph-sun text-2xl hidden dark:block text-yellow-400"></i>
+    </button>
+
+    <main class="w-full max-w-[90%] sm:max-w-md lg:max-w-lg p-2 sm:p-0 z-10 relative">
+        <div id="auth-container" class="bg-brand-light dark:bg-brand-dark rounded-3xl p-8 sm:p-10 shadow-neu-light dark:shadow-neu-dark w-full transform origin-center">
+            
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-brand-light dark:bg-brand-dark shadow-neu-light dark:shadow-neu-dark flex items-center justify-center">
+                    <i id="dynamic-auth-icon" class="ph-bold ph-sign-in text-4xl text-accent"></i>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-bold tracking-tight" id="auth-title">Welcome Back</h1>
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2" id="auth-subtitle">Enter your details to proceed.</p>
+            </div>
+
+            <div id="view-login" class="auth-view block">
+                <form id="form-login" class="space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Email Address</label>
+                        <div class="relative">
+                            <i class="ph ph-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                            <input type="email" id="login-email" required class="w-full bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm font-medium transition-all" placeholder="name@vortex.com">
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2 ml-1">
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Password</label>
+                            <button type="button" class="text-xs font-bold text-accent hover:underline switch-btn" data-target="view-reset">Forgot?</button>
+                        </div>
+                        <div class="relative">
+                            <i class="ph ph-lock-key absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                            <input type="password" id="login-password" required class="w-full bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset rounded-xl py-3 pl-12 pr-12 focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm font-medium transition-all" placeholder="••••••••">
+                            <i class="ph ph-eye absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg cursor-pointer hover:text-accent transition-colors toggle-password"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-3.5 mt-2 rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light dark:shadow-neu-dark text-accent font-bold text-sm transition-all hover:text-blue-600 dark:hover:text-blue-400 neu-btn-light dark:neu-btn-dark flex justify-center items-center gap-2">
+                        <span>Sign In</span><i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+
+            <div id="view-signup" class="auth-view hidden">
+                <form id="form-signup" class="space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Full Name</label>
+                        <div class="relative">
+                            <i class="ph ph-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                            <input type="text" id="signup-name" required class="w-full bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm font-medium transition-all" placeholder="John Doe">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Business Email</label>
+                        <div class="relative">
+                            <i class="ph ph-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                            <input type="email" id="signup-email" required class="w-full bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm font-medium transition-all" placeholder="name@company.com">
+                        </div>
+                        <p id="email-error" class="text-xs text-red-500 mt-2 ml-1 hidden font-medium"></p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Password</label>
+                        <div class="relative">
+                            <i class="ph ph-lock-key absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                            <input type="password" id="signup-password" required class="w-full bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset rounded-xl py-3 pl-12 pr-12 focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm font-medium transition-all" placeholder="••••••••">
+                            <i class="ph ph-eye absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg cursor-pointer hover:text-accent transition-colors toggle-password"></i>
+                        </div>
+                        <div class="mt-3 px-1">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Security Level</span>
+                                <span id="strength-text" class="text-[10px] font-bold text-slate-400 uppercase">None</span>
+                            </div>
+                            <div class="flex gap-1 h-1.5 w-full">
+                                <div id="str-1" class="h-full w-1/3 rounded-full bg-slate-300 dark:bg-slate-700 transition-all duration-300"></div>
+                                <div id="str-2" class="h-full w-1/3 rounded-full bg-slate-300 dark:bg-slate-700 transition-all duration-300"></div>
+                                <div id="str-3" class="h-full w-1/3 rounded-full bg-slate-300 dark:bg-slate-700 transition-all duration-300"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" id="btn-signup" class="w-full py-3.5 mt-2 rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light dark:shadow-neu-dark text-accent font-bold text-sm transition-all neu-btn-light dark:neu-btn-dark flex justify-center items-center gap-2">
+                        <span>Create Account</span><i class="ph-bold ph-rocket-launch"></i>
+                    </button>
+                </form>
+            </div>
+
+            <div id="view-reset" class="auth-view hidden">
+                <form id="form-reset" class="space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Account Email</label>
+                        <div class="relative">
+                            <i class="ph ph-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                            <input type="email" id="reset-email" required class="w-full bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm font-medium transition-all" placeholder="name@vortex.com">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-3.5 mt-2 rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light dark:shadow-neu-dark text-accent font-bold text-sm transition-all neu-btn-light dark:neu-btn-dark flex justify-center items-center gap-2">
+                        <span>Send Recovery Link</span><i class="ph-bold ph-paper-plane-right"></i>
+                    </button>
+                </form>
+            </div>
+
+            <div id="view-otp" class="auth-view hidden">
+                <div class="flex flex-col gap-6">
+                    <div class="flex justify-center gap-2 sm:gap-3 w-full" id="otp-container">
+                        <input class="otp-input w-10 h-12 sm:w-12 sm:h-14 text-center rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset border-2 border-transparent focus:border-accent focus:outline-none text-slate-800 dark:text-slate-100 text-xl font-bold transition-all" type="text" inputmode="numeric" maxlength="1"/>
+                        <input class="otp-input w-10 h-12 sm:w-12 sm:h-14 text-center rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset border-2 border-transparent focus:border-accent focus:outline-none text-slate-800 dark:text-slate-100 text-xl font-bold transition-all" type="text" inputmode="numeric" maxlength="1"/>
+                        <input class="otp-input w-10 h-12 sm:w-12 sm:h-14 text-center rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset border-2 border-transparent focus:border-accent focus:outline-none text-slate-800 dark:text-slate-100 text-xl font-bold transition-all" type="text" inputmode="numeric" maxlength="1"/>
+                        <input class="otp-input w-10 h-12 sm:w-12 sm:h-14 text-center rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset border-2 border-transparent focus:border-accent focus:outline-none text-slate-800 dark:text-slate-100 text-xl font-bold transition-all" type="text" inputmode="numeric" maxlength="1"/>
+                        <input class="otp-input w-10 h-12 sm:w-12 sm:h-14 text-center rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset border-2 border-transparent focus:border-accent focus:outline-none text-slate-800 dark:text-slate-100 text-xl font-bold transition-all" type="text" inputmode="numeric" maxlength="1"/>
+                        <input class="otp-input w-10 h-12 sm:w-12 sm:h-14 text-center rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light-inset dark:shadow-neu-dark-inset border-2 border-transparent focus:border-accent focus:outline-none text-slate-800 dark:text-slate-100 text-xl font-bold transition-all" type="text" inputmode="numeric" maxlength="1"/>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-slate-500 dark:text-slate-400 text-sm">Didn't receive code? </span>
+                        <button class="text-accent text-sm font-bold hover:underline" onclick="showToast('Resending code...')">Resend Now</button>
+                    </div>
+                    <button id="btn-otp-verify" class="w-full py-3.5 rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light dark:shadow-neu-dark text-accent font-bold text-sm transition-all neu-btn-light dark:neu-btn-dark flex justify-center items-center gap-2">
+                        <span>Verify Account</span><i class="ph-bold ph-shield-check"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="auth-footer-divider" class="mt-6 flex items-center justify-center space-x-4">
+                <div class="h-px bg-slate-300 dark:bg-slate-700 w-1/4"></div>
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">OR</span>
+                <div class="h-px bg-slate-300 dark:bg-slate-700 w-1/4"></div>
+            </div>
+
+            <button id="btn-google" class="w-full py-3 mt-4 rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light dark:shadow-neu-dark text-slate-700 dark:text-slate-300 font-bold text-sm transition-all neu-btn-light dark:neu-btn-dark flex justify-center items-center gap-3">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                <span>Continue with Google</span>
+            </button>
+
+            <div id="footer-nav" class="mt-8 text-center text-sm font-medium">
+                <span id="footer-text" class="text-slate-500 dark:text-slate-400">New to Vortex?</span>
+                <button class="text-accent font-bold hover:underline switch-btn" id="footer-action" data-target="view-signup">Create Account</button>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-dark dark:bg-brand-light text-white dark:text-slate-900 px-6 py-3 rounded-full shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 font-medium text-sm flex items-center gap-2 z-50 pointer-events-none">
+        <i class="ph-bold ph-info text-lg text-accent"></i>
+        <span id="toast-msg">Notification</span>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.19/bundled/lenis.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail, fetchSignInMethodsForEmail, sendEmailVerification, signOut, applyActionCode } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyDtvjI-ImiWt-QUE4N-qgG_zkVwMn-7q0U", authDomain: "vortex-atri-hub.firebaseapp.com", projectId: "vortex-atri-hub", storageBucket: "vortex-atri-hub.firebasestorage.app", messagingSenderId: "852943761312", appId: "1:852943761312:web:50a177a49a50532685fec5" };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const lenis = new Lenis();
+        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+        requestAnimationFrame(raf);
+
+        const html = document.documentElement;
+        const themeToggle = document.getElementById('theme-toggle');
+        const moonIcon = themeToggle.querySelector('.ph-moon');
+        const sunIcon = themeToggle.querySelector('.ph-sun');
+
+        themeToggle.addEventListener('click', () => {
+            gsap.to(themeToggle, { scale: 0.9, duration: 0.1, yoyo: true, repeat: 1 });
+            const isDark = html.classList.contains('dark');
+            const activeIcon = isDark ? sunIcon : moonIcon;
+            const incomingIcon = isDark ? moonIcon : sunIcon;
+            gsap.to(activeIcon, { rotation: 180, scale: 0, opacity: 0, duration: 0.2, onComplete: () => {
+                html.classList.toggle('dark');
+                gsap.fromTo(incomingIcon, { rotation: -180, scale: 0, opacity: 0 }, { rotation: 0, scale: 1, opacity: 1, duration: 0.4, ease: "back.out" });
+            }});
+        });
+
+        const views = {
+            'view-login': { title: 'Welcome Back', subtitle: 'Enter your details to proceed.', footerText: 'New to Vortex?', footerAction: 'Create Account', target: 'view-signup', icon: 'ph-sign-in', showOAuth: true },
+            'view-signup': { title: 'Create Empire', subtitle: 'Register your business account.', footerText: 'Already a member?', footerAction: 'Sign In', target: 'view-login', icon: 'ph-user-plus', showOAuth: true },
+            'view-reset': { title: 'Recover Access', subtitle: 'We will send you a secure link.', footerText: 'Remembered password?', footerAction: 'Back to Login', target: 'view-login', icon: 'ph-gear', showOAuth: false },
+            'view-otp': { title: 'Auth Verified', subtitle: 'Confirm identity with the 6-digit code.', footerText: 'Entered wrong info?', footerAction: 'Back to Start', target: 'view-login', icon: 'ph-lock-key-open', showOAuth: false }
+        };
+
+        function switchView(targetId) {
+            const currentView = document.querySelector('.auth-view.block');
+            const targetView = document.getElementById(targetId);
+            const meta = views[targetId];
+            gsap.to(currentView, { opacity: 0, y: 10, duration: 0.2, onComplete: () => {
+                currentView.classList.replace('block', 'hidden');
+                targetView.classList.replace('hidden', 'block');
+                document.getElementById('auth-title').innerText = meta.title;
+                document.getElementById('auth-subtitle').innerText = meta.subtitle;
+                document.getElementById('footer-text').innerText = meta.footerText;
+                const fBtn = document.getElementById('footer-action');
+                fBtn.innerText = meta.footerAction; fBtn.dataset.target = meta.target;
+                const oauthElements = [document.getElementById('auth-footer-divider'), document.getElementById('btn-google')];
+                oauthElements.forEach(el => el.classList.toggle('hidden', !meta.showOAuth));
+                const dIcon = document.getElementById('dynamic-auth-icon');
+                gsap.to(dIcon, { scale: 0, opacity: 0, duration: 0.1, onComplete: () => {
+                    dIcon.className = `ph-bold ${meta.icon} text-4xl text-accent`;
+                    gsap.to(dIcon, { scale: 1, opacity: 1, duration: 0.2, ease: "back.out" });
+                }});
+                gsap.fromTo(targetView, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
+            }});
+        }
+
+        document.querySelectorAll('.switch-btn').forEach(btn => btn.addEventListener('click', (e) => switchView(e.target.dataset.target)));
+
+        function showToast(msg, isErr = false) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.querySelector('i').className = isErr ? "ph-bold ph-warning-circle text-lg text-red-500" : "ph-bold ph-check-circle text-lg text-accent";
+            gsap.to(t, { y: 0, opacity: 1, duration: 0.4, ease: "back.out" });
+            setTimeout(() => gsap.to(t, { y: 20, opacity: 0, duration: 0.3 }), 4000);
+        }
+
+        // --- PASSWORD STRENGTH VIEWER (RESTORED) ---
+        const pwdInput = document.getElementById('signup-password');
+        const strBars = [document.getElementById('str-1'), document.getElementById('str-2'), document.getElementById('str-3')];
+        const strText = document.getElementById('strength-text');
+
+        pwdInput.addEventListener('input', (e) => {
+            const v = e.target.value; let s = 0;
+            if(v.length >= 8) s++; if(v.match(/[A-Z]/) && v.match(/[0-9]/)) s++; if(v.match(/[^A-Za-z0-9]/)) s++;
+            strBars.forEach(b => b.className = "h-full w-1/3 rounded-full bg-slate-300 dark:bg-slate-700 transition-all duration-300");
+            if(v.length === 0) { strText.innerText = "None"; strText.className = "text-[10px] font-bold text-slate-400 uppercase"; return; }
+            if(s === 1 || (v.length > 0 && s === 0)) { strBars[0].classList.replace('bg-slate-300', 'bg-red-500'); strText.innerText = "Weak"; strText.className = "text-[10px] font-bold text-red-500 uppercase"; } 
+            else if(s === 2) { strBars[0].classList.replace('bg-slate-300', 'bg-yellow-500'); strBars[1].classList.replace('bg-slate-300', 'bg-yellow-500'); strText.innerText = "Medium"; strText.className = "text-[10px] font-bold text-yellow-500 uppercase"; } 
+            else if(s === 3) { strBars.forEach(b => { b.classList.replace('bg-slate-300', 'bg-green-500'); b.classList.replace('dark:bg-slate-700', 'bg-green-500'); }); strText.innerText = "Strong"; strText.className = "text-[10px] font-bold text-green-500 uppercase"; }
+        });
+
+        // --- OTP LOGIC ---
+        const otpInputs = document.querySelectorAll('.otp-input');
+        otpInputs.forEach((input, i) => {
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/[^0-9]/g, '');
+                if (input.value.length === 1 && i < otpInputs.length - 1) otpInputs[i+1].focus();
+            });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Backspace' && !input.value && i > 0) otpInputs[i-1].focus(); });
+        });
+
+        document.getElementById('btn-otp-verify').addEventListener('click', () => {
+            const container = document.getElementById('otp-container');
+            container.classList.add('is-loading');
+            setTimeout(() => { container.classList.remove('is-loading'); showToast("Identity confirmed."); }, 2000);
+        });
+
+        // --- AUTH SUBMISSIONS ---
+        document.getElementById('form-login').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            try {
+                const cred = await signInWithEmailAndPassword(auth, email, pass);
+                if(!cred.user.emailVerified) { showToast("Email not verified.", true); await signOut(auth); return; }
+                showToast("Access Granted.");
+            } catch(err) { showToast("Invalid Credentials.", true); }
+        });
+
+        document.getElementById('form-signup').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pass = document.getElementById('signup-password').value;
+            let s = 0; if(pass.length >= 8) s++; if(pass.match(/[A-Z]/) && pass.match(/[0-9]/)) s++; if(pass.match(/[^A-Za-z0-9]/)) s++;
+            if(s < 3) return showToast("Password not strong enough.", true);
+            const email = document.getElementById('signup-email').value;
+            const btn = document.getElementById('btn-signup');
+            try {
+                btn.innerHTML = `<i class="ph ph-spinner animate-spin"></i>`;
+                const cred = await createUserWithEmailAndPassword(auth, email, pass);
+                await sendEmailVerification(cred.user);
+                showToast("Verification link sent! Check inbox."); switchView('view-otp');
+            } catch(err) { showToast(err.message, true); } finally { btn.innerHTML = `<span>Create Account</span><i class="ph-bold ph-rocket-launch"></i>`; }
+        });
+
+        document.getElementById('form-reset').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('reset-email').value;
+            try { await sendPasswordResetEmail(auth, email); showToast("Recovery sent."); switchView('view-login'); } catch(err) { showToast("Error sending recovery.", true); }
+        });
+
+        window.addEventListener('load', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const mode = params.get('mode');
+            const oob = params.get('oobCode');
+            if (oob) {
+                if (mode === 'verifyEmail') { try { await applyActionCode(auth, oob); showToast("Identity Verified!"); switchView('view-login'); } catch { showToast("Link expired.", true); } } 
+                else if (mode === 'resetPassword') { showToast("Reset link detected."); switchView('view-reset'); }
+            }
+        });
+
+        document.querySelectorAll('.toggle-password').forEach(i => i.addEventListener('click', function() {
+            const input = this.previousElementSibling; input.type = input.type === 'password' ? 'text' : 'password';
+            this.classList.toggle('ph-eye'); this.classList.toggle('ph-eye-slash');
+        }));
+
+        document.getElementById('btn-google').addEventListener('click', async () => {
+            try { await signInWithPopup(auth, new GoogleAuthProvider()); showToast("OAuth Success."); } catch(err) { showToast("OAuth Failed.", true); }
+        });
+    </script>
+</body>
+</html>
