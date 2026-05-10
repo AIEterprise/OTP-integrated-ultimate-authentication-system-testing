@@ -33,7 +33,11 @@
         ::-webkit-scrollbar { display: none; }
         .neu-btn-light:active { box-shadow: inset 2px 2px 5px 0 rgba(163,177,198, 0.7), inset -2px -2px 5px 0 rgba(255,255,255, 0.8); }
         .neu-btn-dark:active { box-shadow: inset 2px 2px 5px 0 rgba(0,0,0, 0.6), inset -2px -2px 5px 0 rgba(38,40,55, 0.5); }
-        @keyframes pulse-sunken { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.95); opacity: 0.7; } }
+        
+        @keyframes pulse-sunken {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(0.95); opacity: 0.7; }
+        }
         .is-loading .otp-input { animation: pulse-sunken 1.5s infinite ease-in-out; }
     </style>
 </head>
@@ -151,10 +155,10 @@
                     </div>
                     <div class="text-center">
                         <span class="text-slate-500 dark:text-slate-400 text-sm">Didn't receive code? </span>
-                        <button class="text-accent text-sm font-bold hover:underline" onclick="showToast('Resending link...')">Resend Now</button>
+                        <button class="text-accent text-sm font-bold hover:underline" onclick="showToast('Dispatching new code...')">Resend Now</button>
                     </div>
                     <button id="btn-otp-verify" class="w-full py-3.5 rounded-xl bg-brand-light dark:bg-brand-dark shadow-neu-light dark:shadow-neu-dark text-accent font-bold text-sm transition-all neu-btn-light dark:neu-btn-dark flex justify-center items-center gap-2">
-                        <span>Verify Account</span><i class="ph-bold ph-shield-check"></i>
+                        <span>Verify Identity</span><i class="ph-bold ph-shield-check"></i>
                     </button>
                 </div>
             </div>
@@ -186,69 +190,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.19/bundled/lenis.min.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail, fetchSignInMethodsForEmail, sendEmailVerification, signOut, applyActionCode } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        const firebaseConfig = { apiKey: "AIzaSyDtvjI-ImiWt-QUE4N-qgG_zkVwMn-7q0U", authDomain: "vortex-atri-hub.firebaseapp.com", projectId: "vortex-atri-hub", storageBucket: "vortex-atri-hub.firebasestorage.app", messagingSenderId: "852943761312", appId: "1:852943761312:web:50a177a49a50532685fec5" };
-                const auth = getAuth(app); // Line 194
-        let activeOTP = "";       // Line 195: This stores the code so the "Verify" button can read it.
-        
-        
-        // --- VORTEX REDIRECT ARCHITECTURE ---
-        const actionCodeSettings = {
-            url: window.location.origin + window.location.pathname, 
-            handleCodeInApp: true,
-        };
-
-        const lenis = new Lenis();
-        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
-        requestAnimationFrame(raf);
-
-        const html = document.documentElement;
-        const themeToggle = document.getElementById('theme-toggle');
-        const moonIcon = themeToggle.querySelector('.ph-moon');
-        const sunIcon = themeToggle.querySelector('.ph-sun');
-
-        themeToggle.addEventListener('click', () => {
-            gsap.to(themeToggle, { scale: 0.9, duration: 0.1, yoyo: true, repeat: 1 });
-            const isDark = html.classList.contains('dark');
-            const activeIcon = isDark ? sunIcon : moonIcon;
-            const incomingIcon = isDark ? moonIcon : sunIcon;
-            gsap.to(activeIcon, { rotation: 180, scale: 0, opacity: 0, duration: 0.2, onComplete: () => {
-                html.classList.toggle('dark');
-                gsap.fromTo(incomingIcon, { rotation: -180, scale: 0, opacity: 0 }, { rotation: 0, scale: 1, opacity: 1, duration: 0.4, ease: "back.out" });
-            }});
-        });
-
-        const views = {
-            'view-login': { title: 'Welcome Back', subtitle: 'Enter your details to proceed.', footerText: 'New to Vortex?', footerAction: 'Create Account', target: 'view-signup', icon: 'ph-sign-in', showOAuth: true },
-            'view-signup': { title: 'Create Empire', subtitle: 'Register your business account.', footerText: 'Already a member?', footerAction: 'Sign In', target: 'view-login', icon: 'ph-user-plus', showOAuth: true },
-            'view-reset': { title: 'Recover Access', subtitle: 'We will send you a secure link.', footerText: 'Remembered password?', footerAction: 'Back to Login', target: 'view-login', icon: 'ph-gear', showOAuth: false },
-            'view-otp': { title: 'Auth Verified', subtitle: 'Confirm identity via the link sent.', footerText: 'Entered wrong info?', footerAction: 'Back to Start', target: 'view-login', icon: 'ph-lock-key-open', showOAuth: false }
-        };
-        function switchView(targetId) {
-            const currentView = document.querySelector('.auth-view.block');
-            const targetView = document.getElementById(targetId);
-            const meta = views[targetId];
-            gsap.to(currentView, { opacity: 0, y: 10, duration: 0.2, onComplete: () => {
-                currentView.classList.replace('block', 'hidden');
-                targetView.classList.replace('hidden', 'block');
-                document.getElementById('auth-title').innerText = meta.title;
-                document.getElementById('auth-subtitle').innerText = meta.subtitle;
-                document.getElementById('footer-text').innerText = meta.footerText;
-                const fBtn = document.getElementById('footer-action');
-                fBtn.innerText = meta.footerAction; fBtn.dataset.target = meta.target;
-                const oauthElements = [document.getElementById('auth-footer-divider'), document.getElementById('btn-google')];
-                oauthElements.forEach(el => el.classList.toggle('hidden', !meta.showOAuth));
-                const dIcon = document.getElementById('dynamic-auth-icon');
-                gsap.to(dIcon, { scale: 0, opacity: 0, duration: 0.1, onComplete: () => {
-                    dIcon.className = `ph-bold ${meta.icon} text-4xl text-accent`;
-                    gsap.to(dIcon, { scale: 1, opacity: 1, duration: 0.2, ease: "back.out" });
-                }});
-                gsap.fromTo(targetView, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
-            }});
-        }
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -265,10 +207,10 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         
-        // --- GLOBAL OTP STORAGE ---
-        let activeOTP = ""; // Holds the 6-digit code for verification
+        let activeOTP = "";
+        // Global Registry for current 6-digit code
 
-        // --- MOTION ENGINE (LENIS) ---
+        // --- MOTION ENGINE ---
         const lenis = new Lenis();
         function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
         requestAnimationFrame(raf);
@@ -279,55 +221,88 @@
         themeToggle.addEventListener('click', () => {
             html.classList.toggle('dark');
             const isDark = html.classList.contains('dark');
-            gsap.to('#theme-toggle', { rotation: isDark ? 180 : 0, duration: 0.5, ease: "back.out" });
+            const moonIcon = themeToggle.querySelector('.ph-moon');
+            const sunIcon = themeToggle.querySelector('.ph-sun');
+            gsap.to(themeToggle, { scale: 0.9, duration: 0.1, yoyo: true, repeat: 1 });
+            gsap.to([moonIcon, sunIcon], { rotation: isDark ? 180 : 0, duration: 0.4, ease: "back.out" });
         });
 
-        // --- VIEW NAVIGATION ---
+        // --- NAVIGATION ARCHITECTURE ---
         const views = {
-            'view-login': { title: 'Welcome Back', icon: 'ph-sign-in' },
-            'view-signup': { title: 'Create Empire', icon: 'ph-user-plus' },
-            'view-reset': { title: 'Recover Access', icon: 'ph-gear' },
-            'view-otp': { title: 'Auth Verified', icon: 'ph-lock-key-open' }
+            'view-login': { title: 'Welcome Back', subtitle: 'Enter your details to proceed.', footerText: 'New to Vortex?', footerAction: 'Create Account', target: 'view-signup', icon: 'ph-sign-in', showOAuth: true },
+            'view-signup': { title: 'Create Empire', subtitle: 'Register your business account.', footerText: 'Already a member?', footerAction: 'Sign In', target: 'view-login', icon: 'ph-user-plus', showOAuth: true },
+            'view-reset': { title: 'Recover Access', subtitle: 'We will send you a secure link.', footerText: 'Remembered password?', footerAction: 'Back to Login', target: 'view-login', icon: 'ph-gear', showOAuth: false },
+            'view-otp': { title: 'Auth Verified', subtitle: 'Confirm identity via the 6-digit code.', footerText: 'Entered wrong info?', footerAction: 'Back to Start', target: 'view-login', icon: 'ph-lock-key-open', showOAuth: false }
         };
 
         function switchView(targetId) {
-            const current = document.querySelector('.auth-view.block');
-            const target = document.getElementById(targetId);
-            gsap.to(current, { opacity: 0, y: 10, duration: 0.2, onComplete: () => {
-                current.classList.replace('block', 'hidden');
-                target.classList.replace('hidden', 'block');
-                document.getElementById('auth-title').innerText = views[targetId].title;
-                document.getElementById('dynamic-auth-icon').className = `ph-bold ${views[targetId].icon} text-4xl text-accent`;
-                gsap.fromTo(target, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
+            const currentView = document.querySelector('.auth-view.block');
+            const targetView = document.getElementById(targetId);
+            const meta = views[targetId];
+            
+            gsap.to(currentView, { opacity: 0, y: 10, duration: 0.2, onComplete: () => {
+                currentView.classList.replace('block', 'hidden');
+                targetView.classList.replace('hidden', 'block');
+                
+                document.getElementById('auth-title').innerText = meta.title;
+                document.getElementById('auth-subtitle').innerText = meta.subtitle;
+                document.getElementById('footer-text').innerText = meta.footerText;
+                
+                const fBtn = document.getElementById('footer-action');
+                fBtn.innerText = meta.footerAction; fBtn.dataset.target = meta.target;
+
+                const oauthElements = [document.getElementById('auth-footer-divider'), document.getElementById('btn-google')];
+                oauthElements.forEach(el => el.classList.toggle('hidden', !meta.showOAuth));
+
+                const dIcon = document.getElementById('dynamic-auth-icon');
+                dIcon.className = `ph-bold ${meta.icon} text-4xl text-accent`;
+                
+                gsap.fromTo(targetView, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
             }});
         }
 
-        document.querySelectorAll('.switch-btn').forEach(btn => btn.addEventListener('click', (e) => switchView(e.target.dataset.target)));
+        document.querySelectorAll('.switch-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => switchView(e.target.dataset.target));
+        });
 
-        // --- PASSWORD STRENGTH VIEWER ---
+        // --- STRENGTH METER (LIVE FEEDBACK) ---
         document.getElementById('signup-password').addEventListener('input', (e) => {
             const v = e.target.value; let s = 0;
             if(v.length >= 8) s++; if(v.match(/[A-Z]/) && v.match(/[0-9]/)) s++; if(v.match(/[^A-Za-z0-9]/)) s++;
             const bars = [document.getElementById('str-1'), document.getElementById('str-2'), document.getElementById('str-3')];
-            bars.forEach(b => b.className = "h-full w-1/3 rounded-full bg-slate-300 dark:bg-slate-700");
-            if(s >= 1) bars[0].classList.add('bg-red-500'); 
-            if(s >= 2) bars[1].classList.add('bg-yellow-500'); 
-            if(s >= 3) { bars.forEach(b => b.classList.add('bg-green-500')); }
+            const txt = document.getElementById('strength-text');
+            bars.forEach(b => b.className = "h-full w-1/3 rounded-full bg-slate-300 dark:bg-slate-700 transition-all");
+            if(v.length === 0) { txt.innerText = "None"; return; }
+            if(s >= 1) { bars[0].classList.add('bg-red-500'); txt.innerText = "Weak"; }
+            if(s >= 2) { bars[1].classList.add('bg-yellow-500'); txt.innerText = "Medium"; }
+            if(s >= 3) { bars.forEach(b => b.classList.add('bg-green-500')); txt.innerText = "Strong"; }
         });
 
-        // --- SIGNUP & 6-DIGIT OTP DISPATCH ---
+        // --- OTP INPUT LOGIC ---
+        const otpInputs = document.querySelectorAll('.otp-input');
+        otpInputs.forEach((input, i) => {
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/[^0-9]/g, '');
+                if (input.value.length === 1 && i < otpInputs.length - 1) otpInputs[i+1].focus();
+            });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Backspace' && !input.value && i > 0) otpInputs[i-1].focus(); });
+        });
+
+        // --- AUTH LOGIC (SIGNUP + 6-DIGIT DISPATCH) ---
         document.getElementById('form-signup').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('signup-email').value;
             const pass = document.getElementById('signup-password').value;
             const btn = document.getElementById('btn-signup');
-            activeOTP = Math.floor(100000 + Math.random() * 900000).toString(); // Generate
+            
+            // Generate numeric code
+            activeOTP = Math.floor(100000 + Math.random() * 900000).toString();
 
             try {
                 btn.innerHTML = `<i class="ph ph-spinner animate-spin"></i>`;
                 await createUserWithEmailAndPassword(auth, email, pass);
                 
-                // Trigger Google Script Bridge
+                // Trigger Custom OTP Bridge
                 const bridgeURL = "https://script.google.com/macros/s/AKfycbyLFVSUSXTNObw7i4T76JJL_ln2ILOYD11u-E4tnsjzTkTesx6LUU6v4uXSE_LUIZfAEg/exec";
                 await fetch(bridgeURL, {
                     method: 'POST',
@@ -335,7 +310,7 @@
                     body: JSON.stringify({ email: email, otp_code: activeOTP })
                 });
 
-                showToast("6-Digit Code sent to inbox.");
+                showToast("6-Digit code sent to your inbox.");
                 switchView('view-otp');
             } catch(err) { showToast(err.message, true); }
             finally { btn.innerHTML = `<span>Create Account</span><i class="ph-bold ph-rocket-launch"></i>`; }
@@ -343,22 +318,55 @@
 
         // --- OTP VERIFICATION LOGIC ---
         document.getElementById('btn-otp-verify').addEventListener('click', () => {
-            const entered = Array.from(document.querySelectorAll('.otp-input')).map(i => i.value).join('');
-            if (entered === activeOTP && activeOTP !== "") {
-                showToast("Identity Confirmed.");
-                switchView('view-login');
-            } else {
-                showToast("Invalid Code.", true);
-            }
+            const container = document.getElementById('otp-container');
+            const entered = Array.from(otpInputs).map(i => i.value).join('');
+            
+            container.classList.add('is-loading');
+            setTimeout(() => {
+                container.classList.remove('is-loading');
+                if (entered === activeOTP && activeOTP !== "") {
+                    showToast("Identity Verified. Proceeding...");
+                    switchView('view-login');
+                } else {
+                    showToast("Invalid code. Access Denied.", true);
+                }
+            }, 1000);
         });
 
-        // --- UTILS ---
+        // --- LOGIN & RESET ---
+        document.getElementById('form-login').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                showToast("Access Granted.");
+            } catch(err) { showToast("Invalid Credentials.", true); }
+        });
+
+        document.getElementById('form-reset').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('reset-email').value;
+            try { await sendPasswordResetEmail(auth, email); showToast("Recovery sent."); switchView('view-login'); } catch(err) { showToast("Error sending recovery.", true); }
+        });
+
+        document.getElementById('btn-google').addEventListener('click', async () => {
+            try { await signInWithPopup(auth, new GoogleAuthProvider()); showToast("OAuth Success."); } catch(err) { showToast("OAuth Failed.", true); }
+        });
+
+        // UTILS
         function showToast(msg, isErr = false) {
             const t = document.getElementById('toast');
             document.getElementById('toast-msg').innerText = msg;
-            t.classList.replace('translate-y-20', 'translate-y-0'); t.classList.replace('opacity-0', 'opacity-100');
-            setTimeout(() => { t.classList.replace('translate-y-0', 'translate-y-20'); t.classList.replace('opacity-100', 'opacity-0'); }, 3000);
+            t.querySelector('i').className = isErr ? "ph-bold ph-warning-circle text-lg text-red-500" : "ph-bold ph-check-circle text-lg text-accent";
+            gsap.to(t, { y: 0, opacity: 1, duration: 0.4, ease: "back.out" });
+            setTimeout(() => gsap.to(t, { y: 20, opacity: 0, duration: 0.3 }), 4000);
         }
+
+        document.querySelectorAll('.toggle-password').forEach(i => i.addEventListener('click', function() {
+            const input = this.previousElementSibling; input.type = input.type === 'password' ? 'text' : 'password';
+            this.classList.toggle('ph-eye'); this.classList.toggle('ph-eye-slash');
+        }));
     </script>
 </body>
 </html>
