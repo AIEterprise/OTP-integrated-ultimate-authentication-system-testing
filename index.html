@@ -191,14 +191,9 @@
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail, fetchSignInMethodsForEmail, sendEmailVerification, signOut, applyActionCode } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         const firebaseConfig = { apiKey: "AIzaSyDtvjI-ImiWt-QUE4N-qgG_zkVwMn-7q0U", authDomain: "vortex-atri-hub.firebaseapp.com", projectId: "vortex-atri-hub", storageBucket: "vortex-atri-hub.firebasestorage.app", messagingSenderId: "852943761312", appId: "1:852943761312:web:50a177a49a50532685fec5" };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-// --- VORTEX REDIRECT SETTINGS ---
-const actionCodeSettings = {
-    // Ensures the user returns to the exact page they started on
-    url: window.location.origin + window.location.pathname,
-    handleCodeInApp: true,
-};
+                const auth = getAuth(app); // Line 194
+        let activeOTP = "";       // Line 195: This stores the code so the "Verify" button can read it.
+        
         
         // --- VORTEX REDIRECT ARCHITECTURE ---
         const actionCodeSettings = {
@@ -314,21 +309,41 @@ const actionCodeSettings = {
             } catch(err) { showToast("Invalid Credentials.", true); }
         });
 
-        document.getElementById('form-signup').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const pass = document.getElementById('signup-password').value;
-            let s = 0; if(pass.length >= 8) s++; if(pass.match(/[A-Z]/) && pass.match(/[0-9]/)) s++; if(pass.match(/[^A-Za-z0-9]/)) s++;
-            if(s < 3) return showToast("Password weak.", true);
-            const email = document.getElementById('signup-email').value;
-            const btn = document.getElementById('btn-signup');
-            try {
-                btn.innerHTML = `<i class="ph ph-spinner animate-spin"></i>`;
-                const cred = await createUserWithEmailAndPassword(auth, email, pass);
-                await sendEmailVerification(cred.user, actionCodeSettings);
-                showToast("Verification link sent! Check inbox."); switchView('view-otp');
-            } catch(err) { showToast(err.message, true); } finally { btn.innerHTML = `<span>Create Account</span><i class="ph-bold ph-rocket-launch"></i>`; }
+        // --- VORTEX REAL OTP GENERATOR ---
+let activeOTP = ""; // Secure global variable
+
+document.getElementById('form-signup').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('signup-email').value;
+    const pass = document.getElementById('signup-password').value;
+    const btn = document.getElementById('btn-signup');
+
+    // 1. Generate 6-digit Code
+    activeOTP = Math.floor(100000 + Math.random() * 900000).toString();
+
+    try {
+        btn.innerHTML = `<i class="ph ph-spinner animate-spin"></i> Dispatching...`;
+        
+        // 2. Create Firebase Account (Background)
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        
+        // 3. Trigger Your Free OTP Bridge
+        const bridgeURL = "https://script.google.com/macros/s/AKfycbyLFVSUSXTNObw7i4T76JJL_ln2ILOYD11u-E4tnsjzTkTesx6LUU6v4uXSE_LUIZfAEg/exec";
+        await fetch(bridgeURL, {
+            method: 'POST',
+            mode: 'no-cors', // Critical for Apps Script
+            body: JSON.stringify({ email: email, otp_code: activeOTP })
         });
 
+        showToast("6-Digit Code sent to your inbox.");
+        switchView('view-otp');
+    } catch(err) {
+        showToast(err.message, true);
+    } finally {
+        btn.innerHTML = `<span>Create Account</span><i class="ph-bold ph-rocket-launch"></i>`;
+    }
+});
+        
         document.getElementById('form-reset').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('reset-email').value;
